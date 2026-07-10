@@ -1,6 +1,6 @@
 # Field Guide: Solving a Duplicate Payment
 
-An interactive walkthrough of Antithesis's deterministic simulation testing platform, built while preparing for a Solutions Engineer interview.
+An interactive walkthrough of Antithesis's deterministic simulation testing platform.
 
 ## What this is
 
