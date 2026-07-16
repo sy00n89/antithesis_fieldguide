@@ -303,6 +303,10 @@
         <p>The exact timing that caused a bug, like a confirmation arriving a few milliseconds late, is normally governed by real hardware. You cannot force real hardware to be unlucky the same way twice.</p>
       </div>
 
+      <div class="note method"><span class="tag">what is actually running underneath</span>
+        <p>This is not a modified operating system. Your unmodified Linux, your unmodified application code, all of it runs completely normally on top of the Determinator. The difference sits one level below that, in the hypervisor itself. Most CPU instructions execute at close to full host speed, because their results are already deterministic on real hardware, adding two numbers gives the same answer every time regardless of who is watching. The Determinator only has to step in for the instructions that are not naturally deterministic: reading the system clock, asking for a random number, checking how long an operation took. Those get trapped and handed a manufactured answer instead of a real one. That is the whole trick. It is not simulating a computer from scratch, it is running a real computer and quietly overriding the small number of places where real computers normally behave unpredictably.</p>
+      </div>
+
       <div class="rec-panel">
         <div class="rec-head">
           <span class="rec-status" id="recStatus"><span class="rec-dot" id="recDot"></span><span id="recStatusText">Ready to record</span></span>
@@ -339,6 +343,7 @@
 
       <div class="note blue"><span class="tag">how this actually works</span>
         <p>The seed is not a recording of what happened. It is the input to a generator that decides what happens. The Determinator, the hypervisor described in the last chapter, replaces every source of real world randomness on the machine, including thread scheduling, network delivery timing, and any random number your code calls, with its own pseudorandom generator. Give that generator the same seed twice, and it produces the identical sequence of decisions both times, the same way a well known formula always produces the same output for the same input. The bug is not saved anywhere. It is regenerated from the seed forward, which is why running the same seed twice gives you the exact same duplicate charge, down to the millisecond.</p>
+        <p style="margin-top:10px;">One more thing worth knowing: the seed that finds a real bug is almost never guessed at randomly and gotten lucky on the first try. Antithesis watches which lines of code and which branches get exercised as it runs, and when it notices something it has not seen before, a branch that almost never gets taken, a log line that says something should never happen, it treats that as a lead worth following and keeps exploring from there instead of starting over from scratch each time. That is what makes it possible to find a bug that depends on three separate unlikely things lining up at once, instead of needing to get equally lucky three times in a row.</p>
       </div>
     </div>
 
@@ -372,6 +377,7 @@
       <h1>Rewind: Causality Analysis</h1>
       <p class="ch-sub">Reproducing the bug is one thing. Knowing exactly where it broke is another.</p>
       <p>Once a bug shows up, Antithesis can rewind the same timeline to different moments and explore forward again from each one, many times, with different fault patterns and different scheduling. It counts how often the bug still happens from each point in time. Put together, that produces a graph of bug probability climbing as the timeline gets closer to the failure, with a sharp jump exactly where the outcome became locked in.</p>
+      <p>Concretely, this works by walking backward through the exact decision points that were made along the way, the moments where the platform reached in and decided a random outcome, and testing a batch of different alternate outcomes from each one. If every alternate still leads to the same bug, that decision point was already too late, the bug was baked in before it. If some alternates avoid the bug, that decision point still mattered. Walking backward through enough of these points is what locates the exact jump on the graph, not a guess, a direct search.</p>
 
       <div class="note blue"><span class="tag">reading the graph</span>
         <p>Early in the timeline, the outcome could still go either way, so the probability is low. At the exact moment the delayed confirmation caused the retry logic to fire without checking the first attempt, the probability jumps hard. Rewind to any point after that jump, and the bug is already baked in.</p>
@@ -485,7 +491,7 @@
 
   <div class="main" id="demoView" style="display:none;">
     <button class="demo-exit" id="demoExitBtn">&#8592; back to field guide</button>
-    <div class="demo-progress" id="demoProgress">Beat 1 of 7</div>
+    <div class="demo-progress" id="demoProgress">Beat 1 of 8</div>
 
     <div class="demo-beat active" data-beat="1">
       <div class="demo-eyebrow">Live Demo &middot; Beat 1</div>
@@ -506,7 +512,31 @@
 
     <div class="demo-beat" data-beat="2">
       <div class="demo-eyebrow">Live Demo &middot; Beat 2</div>
-      <h1>Inject the fault</h1>
+      <h1>Finding the bug in the first place</h1>
+      <p style="font-size:13.5px; margin-bottom:16px;">Nobody clicked a button that says duplicate this charge. The platform found this on its own, by running the system over and over with different timing, different scheduling, different faults, and watching for the run where something it was told should never happen, happened.</p>
+      <div class="causality-panel" style="text-align:center;">
+        <button class="demo-btn" id="searchRunBtn">Run exploration</button>
+        <div style="display:flex; gap:32px; justify-content:center; margin:14px 0 18px; flex-wrap:wrap;">
+          <div><div class="seed-lbl" style="margin-bottom:2px;">Runs explored</div><div id="searchCounter" style="font-family:var(--mono); font-size:26px; color:var(--text); font-weight:700;">0</div></div>
+          <div><div class="seed-lbl" style="margin-bottom:2px;">Branch coverage</div><div id="searchCoverage" style="font-family:var(--mono); font-size:26px; color:var(--text); font-weight:700;">0%</div></div>
+        </div>
+        <div class="terminal" style="text-align:left;">
+          <div class="line"><span id="searchTickerText" style="color:var(--text-mute);">idle, waiting to start</span></div>
+        </div>
+        <div id="searchFoundBanner" style="display:none; margin-top:14px; padding:14px; border:1px solid var(--red); border-radius:8px; background:rgba(229,87,58,0.08); text-align:left;">
+          <div style="font-family:var(--mono); font-size:12px; color:var(--red); font-weight:700; letter-spacing:0.04em;">RUN #128,004 &middot; PROPERTY VIOLATED</div>
+          <div style="font-family:var(--mono); font-size:11.5px; color:var(--text-dim); margin-top:4px;">seed 18492731 captured, ready to replay on demand</div>
+        </div>
+      </div>
+      <div class="reg-row">
+        <div class="reg-card plain"><span class="reg-tag">plain terms</span><p>The platform tried tens of thousands of different timings on its own, in the background, until one of them broke a rule we gave it. That is the run we are about to look at.</p></div>
+        <div class="reg-card tech"><span class="reg-tag">technical</span><p>This is coverage guided, not blind random search. Antithesis tracks which lines and branches get exercised, and when it sees something it has not seen before, a rarely taken branch, a log line flagged as unexpected, it forks from that state and keeps exploring forward from there instead of restarting blind. That is how a bug depending on several unlikely things lining up at once gets found in tens of thousands of runs instead of needing to get lucky millions of times over.</p></div>
+      </div>
+    </div>
+
+    <div class="demo-beat" data-beat="3">
+      <div class="demo-eyebrow">Live Demo &middot; Beat 3</div>
+      <h1>Run #128,004</h1>
       <div class="diagram-flow demo-flow-anim" id="demoFlowFault">
         <div class="flow-box"><div class="fi"><span class="icon-mask icon-man"></span></div><div class="fl">Customer</div></div>
         <div class="flow-arrow" data-arrow="1">&#8594;</div>
@@ -514,16 +544,22 @@
         <div class="flow-arrow" data-arrow="2">&#8594;</div>
         <div class="flow-box"><div class="fi"><span class="icon-mask icon-database"></span></div><div class="fl">Database</div></div>
       </div>
-      <button class="demo-btn" id="injectFaultBtn">Inject network delay</button>
+      <button class="demo-btn" id="replayFoundRunBtn">Replay run #128,004</button>
+      <div class="terminal" id="beat3Readout" style="display:none;">
+        <div class="line"><span>thread</span><span class="warn">payment-worker-2 paused 340ms mid write</span></div>
+        <div class="line"><span>network</span><span class="warn">ack delayed 612ms on the wire</span></div>
+        <div class="line"><span>branch</span><span class="warn">retry-without-check taken, 1 of 128,004 explored runs</span></div>
+        <div class="foot">This exact combination is what the search in the last screen was looking for.</div>
+      </div>
       <div class="receipt-row" id="receiptRowFirst"></div>
       <div class="reg-row">
-        <div class="reg-card plain"><span class="reg-tag">plain terms</span><p>We delay the confirmation on purpose. The customer's app doesn't hear back in time, assumes it failed, and tries again. Watch what happens to the charge.</p></div>
-        <div class="reg-card tech"><span class="reg-tag">technical</span><p>A network fault is injected on the ack path. The client's retry logic fires without checking whether the first authorization actually landed, producing a second write for the same request.</p></div>
+        <div class="reg-card plain"><span class="reg-tag">plain terms</span><p>Here is what that specific run actually did. A worker paused mid write, the confirmation arrived late, and the retry fired before the first attempt was checked. Watch the charge.</p></div>
+        <div class="reg-card tech"><span class="reg-tag">technical</span><p>This is not a manual fault injection button. This is the platform replaying the exact sequence of scheduling decisions it discovered during the search, thread pause included, which is why the outcome is a genuine second write, not a staged one.</p></div>
       </div>
     </div>
 
-    <div class="demo-beat" data-beat="3">
-      <div class="demo-eyebrow">Live Demo &middot; Beat 3</div>
+    <div class="demo-beat" data-beat="4">
+      <div class="demo-eyebrow">Live Demo &middot; Beat 4</div>
       <div class="quote-block">
         <div class="qtext">"In production, this happened once.<br>Nobody could make it happen again.<br>Let's try."</div>
       </div>
@@ -533,20 +569,26 @@
       </div>
     </div>
 
-    <div class="demo-beat" data-beat="4">
-      <div class="demo-eyebrow">Live Demo &middot; Beat 4</div>
+    <div class="demo-beat" data-beat="5">
+      <div class="demo-eyebrow">Live Demo &middot; Beat 5</div>
       <h1>Same seed, again</h1>
       <div class="seed-tag" id="demoSeedTag">seed: 18492731</div>
       <button class="demo-btn" id="demoReplayBtn">Replay this seed</button>
+      <div class="terminal" id="beat5Readout" style="display:none;">
+        <div class="line"><span>thread</span><span class="ok">payment-worker-2 paused 340ms mid write &#10003;</span></div>
+        <div class="line"><span>network</span><span class="ok">ack delayed 612ms on the wire &#10003;</span></div>
+        <div class="line"><span>branch</span><span class="ok">retry-without-check taken &#10003;</span></div>
+        <div class="foot">Byte for byte identical to run #128,004. Nothing was re-guessed.</div>
+      </div>
       <div class="receipt-row" id="receiptRowSecond"></div>
       <div class="reg-row">
         <div class="reg-card plain"><span class="reg-tag">plain terms</span><p>Same seed, same bug, identically, on command. Nothing about this run is left to chance.</p></div>
-        <div class="reg-card tech"><span class="reg-tag">technical</span><p>The Determinator replays every scheduling and timing decision from the seed. Same fault, same interleaving, same duplicate write, byte for byte identical to the first run. The seed is not a saved recording, it is the input to the generator that decides those choices, so feeding it back in regenerates the exact same run.</p></div>
+        <div class="reg-card tech"><span class="reg-tag">technical</span><p>The seed is not a saved recording of run #128,004. It is the input to the generator that decided every choice in that run, so feeding it back in regenerates the exact same sequence of decisions rather than replaying stored data. That is also why this scales, there is nothing bulky to store, only the seed and the handful of points where the platform reached in and made a choice.</p></div>
       </div>
     </div>
 
-    <div class="demo-beat" data-beat="5">
-      <div class="demo-eyebrow">Live Demo &middot; Beat 5</div>
+    <div class="demo-beat" data-beat="6">
+      <div class="demo-eyebrow">Live Demo &middot; Beat 6</div>
       <h1>Rewind it</h1>
       <button class="demo-btn" id="demoCausalityBtn">Run causality analysis</button>
       <svg class="causality-graph" id="demoCausalityGraph" viewBox="0 0 640 220" xmlns="http://www.w3.org/2000/svg">
@@ -562,34 +604,35 @@
       </svg>
       <div class="reg-row">
         <div class="reg-card plain"><span class="reg-tag">plain terms</span><p>Not just "it happened again." Here is the exact moment it became unavoidable.</p></div>
-        <div class="reg-card tech"><span class="reg-tag">technical</span><p>Causality analysis rewinds the timeline and re-explores forward from each point, plotting bug probability over time. The sharp jump marks the point of no return.</p></div>
+        <div class="reg-card tech"><span class="reg-tag">technical</span><p>The platform walks backward through the decision points in this run and tests a batch of alternate outcomes from each one. If every alternate still leads to the bug, that point was already too late. The sharp jump marks the last point where the outcome could still have gone the other way.</p></div>
       </div>
     </div>
 
-    <div class="demo-beat" data-beat="6">
-      <div class="demo-eyebrow">Live Demo &middot; Beat 6</div>
+    <div class="demo-beat" data-beat="7">
+      <div class="demo-eyebrow">Live Demo &middot; Beat 7</div>
       <h1>The rule it broke</h1>
       <div class="law-row" style="border:1px solid var(--line); border-radius:8px; padding:14px 16px; background:var(--bg);">
         <span class="law-dot red"></span><span>Payment processed exactly once</span><span class="law-tag">always, violated</span>
       </div>
       <div class="reg-row">
         <div class="reg-card plain"><span class="reg-tag">plain terms</span><p>We only had to write one rule: a retried payment should never process twice. Antithesis kept trying to break that rule until it found the one condition that did.</p></div>
-        <div class="reg-card tech"><span class="reg-tag">technical</span><p>This is an <span class="real-term">always</span> property, checked against every run Antithesis explores, not one handwritten test case for one scenario.</p></div>
+        <div class="reg-card tech"><span class="reg-tag">technical</span><p>This is an <span class="real-term">always</span> property, checked against every one of the 128,004 runs Antithesis explored, not one handwritten test case for one scenario.</p></div>
       </div>
     </div>
 
-    <div class="demo-beat" data-beat="7">
-      <div class="demo-eyebrow">Live Demo &middot; Beat 7</div>
+    <div class="demo-beat" data-beat="8">
+      <div class="demo-eyebrow">Live Demo &middot; Beat 8</div>
       <h1>Triage Report</h1>
       <div class="report-card">
         <div class="report-row"><span class="k">Property violated</span><span class="v">Payment processed exactly once</span></div>
         <div class="report-row"><span class="k">Root cause</span><span class="v">Retry after delayed confirmation</span></div>
         <div class="report-row"><span class="k">Seed</span><span class="v">18492731</span></div>
+        <div class="report-row"><span class="k">Runs explored</span><span class="v">128,004</span></div>
         <div class="report-row"><span class="k">Replay</span><span class="v" style="color:var(--green)">Available on demand</span></div>
       </div>
       <div class="reg-row">
         <div class="reg-card plain"><span class="reg-tag">plain terms</span><p>This is what an engineer gets Monday morning: the bug, the exact repro, and the line it broke on.</p></div>
-        <div class="reg-card tech"><span class="reg-tag">technical</span><p>The Triage Report ships with the seed and full timeline, so the fix can be verified against the identical failing run, not a best guess at what happened.</p></div>
+        <div class="reg-card tech"><span class="reg-tag">technical</span><p>The Triage Report ships with the seed and full timeline, so the fix can be verified against the identical failing run. An engineer can also drop directly into a live terminal frozen at the moment of failure, poke around the database, kill a process, and see whether that unsticks it, without ever losing the repro.</p></div>
       </div>
     </div>
 
@@ -843,7 +886,54 @@
     setTimeout(() => arrows.forEach(a => a.classList.remove('pulse')), 1400);
   });
 
-  // Beat 2: inject fault -> stall -> duplicate receipts appear
+  // Beat 2: the search, a coverage-guided exploration animation ending on the discovered run
+  const searchTickerMsgs = [
+    'pausing thread payment-worker-1 for 84ms',
+    'delaying ack 40ms on the wire',
+    'trying interleaving: retry before write commits',
+    'crashing worker mid write, checking recovery',
+    'duplicating packet on the wire',
+    'pausing thread payment-worker-2 for 340ms',
+    'desyncing clocks between API and database by 12ms',
+    'holding the database lock 90ms longer than usual',
+    'delaying ack 612ms on the wire',
+    'exploring branch: retry-without-check'
+  ];
+  document.getElementById('searchRunBtn').addEventListener('click', (e) => {
+    e.target.disabled = true;
+    e.target.textContent = 'Exploring...';
+    const counterEl = document.getElementById('searchCounter');
+    const coverageEl = document.getElementById('searchCoverage');
+    const tickerEl = document.getElementById('searchTickerText');
+    const foundBanner = document.getElementById('searchFoundBanner');
+    foundBanner.style.display = 'none';
+    let count = 0;
+    let coverage = 0;
+    const target = 128004;
+    const duration = 2400;
+    const startTime = Date.now();
+    const tickInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      count = Math.floor(target * Math.pow(progress, 0.6));
+      coverage = Math.min(96, Math.floor(progress * 100 * 0.98));
+      counterEl.textContent = count.toLocaleString();
+      coverageEl.textContent = coverage + '%';
+      tickerEl.textContent = searchTickerMsgs[Math.floor(Math.random() * searchTickerMsgs.length)];
+      if(progress >= 1){
+        clearInterval(tickInterval);
+        counterEl.textContent = '128,004';
+        coverageEl.textContent = '96%';
+        tickerEl.textContent = 'property violated: payment processed exactly once';
+        tickerEl.style.color = 'var(--red)';
+        foundBanner.style.display = 'block';
+        e.target.disabled = false;
+        e.target.textContent = 'Run exploration again';
+      }
+    }, 70);
+  });
+
+  // Beat 3: replay the discovered run, thread pause and delay, then duplicate receipts appear
   function buildReceiptPair(containerId, duplicate){
     const row = document.getElementById(containerId);
     row.innerHTML = '';
@@ -860,22 +950,24 @@
       setTimeout(() => second.classList.add('shown'), 900);
     }
   }
-  document.getElementById('injectFaultBtn').addEventListener('click', (e) => {
+  document.getElementById('replayFoundRunBtn').addEventListener('click', (e) => {
     e.target.disabled = true;
     const arrows = document.querySelectorAll('#demoFlowFault .flow-arrow');
     arrows[0].classList.add('pulse');
     document.getElementById('receiptRowFirst').innerHTML = '';
+    document.getElementById('beat3Readout').style.display = 'block';
     setTimeout(() => {
       buildReceiptPair('receiptRowFirst', true);
       e.target.disabled = false;
-      e.target.textContent = 'Inject network delay again';
+      e.target.textContent = 'Replay run #128,004 again';
     }, 700);
   });
 
-  // Beat 4: replay same seed -> identical duplicate receipts
+  // Beat 5: replay same seed, technical readout confirms identical decisions, then identical receipts
   document.getElementById('demoReplayBtn').addEventListener('click', (e) => {
     e.target.disabled = true;
     document.getElementById('receiptRowSecond').innerHTML = '';
+    document.getElementById('beat5Readout').style.display = 'block';
     setTimeout(() => {
       buildReceiptPair('receiptRowSecond', true);
       e.target.disabled = false;
