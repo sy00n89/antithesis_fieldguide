@@ -504,9 +504,13 @@
         <div class="flow-box"><div class="fi"><span class="icon-mask icon-database"></span></div><div class="fl">Database</div></div>
       </div>
       <button class="demo-btn" id="normalRunBtn">Run a normal request</button>
+      <div class="receipt-row" id="receiptRowNormal"></div>
+      <div class="law-row" id="beat1PropertyRow" style="display:none; border:1px solid var(--line); border-radius:8px; padding:14px 16px; background:var(--bg); margin:16px 0;">
+        <span class="law-dot green"></span><span>Payment processed exactly once</span><span class="law-tag">always, holding</span>
+      </div>
       <div class="reg-row">
-        <div class="reg-card plain"><span class="reg-tag">plain terms</span><p>A customer pays. The request goes out, gets approved, and gets written down once. Nothing unusual here yet.</p></div>
-        <div class="reg-card tech"><span class="reg-tag">technical</span><p>Client sends a charge request, the API authorizes it, and a single row is written to the payments table. This is the happy path, running inside the same containerized environment Antithesis will fuzz.</p></div>
+        <div class="reg-card plain"><span class="reg-tag">plain terms</span><p>A customer pays. The request goes out, gets approved, and gets written down once. This is the rule we're about to try to break: a payment should never process twice.</p></div>
+        <div class="reg-card tech"><span class="reg-tag">technical</span><p>Client sends a charge request, the API authorizes it, and a single row is written to the payments table. This run already satisfies our always property. Every run from here forward gets checked against this exact same rule.</p></div>
       </div>
     </div>
 
@@ -878,12 +882,22 @@
     if(demoIdx > 1) showDemoBeat(demoIdx - 1);
   });
 
-  // Beat 1: normal flow pulse
-  document.getElementById('normalRunBtn').addEventListener('click', () => {
+  // Beat 1: normal flow pulse, one payment, then the property is stated
+  document.getElementById('normalRunBtn').addEventListener('click', (e) => {
     const arrows = document.querySelectorAll('#demoFlowNormal .flow-arrow');
     arrows.forEach(a => a.classList.remove('pulse'));
     arrows.forEach((a, i) => setTimeout(() => a.classList.add('pulse'), i * 350));
     setTimeout(() => arrows.forEach(a => a.classList.remove('pulse')), 1400);
+    const row = document.getElementById('receiptRowNormal');
+    row.innerHTML = '';
+    const receipt = document.createElement('div');
+    receipt.className = 'receipt';
+    receipt.innerHTML = '<div class="r-label">Charge</div><div class="r-amount">$48.00</div><div class="r-status" style="color:var(--green)">Authorized &#10003;</div>';
+    row.appendChild(receipt);
+    setTimeout(() => receipt.classList.add('shown'), 700);
+    setTimeout(() => {
+      document.getElementById('beat1PropertyRow').style.display = 'flex';
+    }, 1100);
   });
 
   // Beat 2: the search, a coverage-guided exploration animation ending on the discovered run
