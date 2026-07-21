@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Demo: Duplicate Charge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#160f1a; --panel:#120c15; --raised:#1e1421;
+    --coral:#ff6b4a; --blue:#5b7ba8; --gold:#e8b84b; --green:#7fd88f; --red:#e5573a;
+    --text:#f3ece8; --text-dim:#b8aab8; --text-mute:#7c6d7f; --line:#33232f;
+    --mono:'JetBrains Mono', ui-monospace, monospace; --sans:'Inter', system-ui, sans-serif; --serif:'Libre Caslon Display', serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans); line-height:1.6;}
+  p{color:var(--text-dim); margin:0 0 10px; font-size:14px;}
+  strong{color:var(--text); font-weight:600;}
+  .main{padding:38px 44px; max-width:860px; margin:0 auto;}
+  @media (max-width:600px){ .main{padding:20px 16px;} }
+
+  .demo-progress{font-family:var(--mono); font-size:10.5px; color:var(--text-mute); margin-bottom:6px;}
+  .demo-eyebrow{font-family:var(--mono); font-size:11px; color:var(--coral); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px;}
+  h1{font-family:var(--serif); font-weight:400; font-size:27px; margin:0 0 6px;}
+  .h1-sub{color:var(--text-dim); font-size:13.5px; margin-bottom:18px;}
+
+  .demo-beat{display:none;}
+  .demo-beat.active{display:block;}
+
+  .diagram-flow{display:flex; align-items:center; justify-content:center; gap:8px; margin:16px 0; flex-wrap:wrap;}
+  .flow-box{border:1px solid var(--line); border-radius:10px; padding:12px 16px; text-align:center; background:var(--panel); min-width:90px;}
+  .flow-box .fl{font-family:var(--mono); font-size:10.5px; color:var(--text-dim);}
+  .flow-arrow-wrap{display:flex; flex-direction:column; align-items:center; gap:2px;}
+  .flow-arrow{color:var(--text-mute); font-size:15px; transition:color .3s;}
+  .flow-arrow.pulse{color:var(--green);}
+  .flow-arrow.hit{color:var(--red);}
+  .flow-note{font-family:var(--mono); font-size:9.5px; color:var(--red); opacity:0; transition:opacity .3s;}
+  .flow-note.show{opacity:1;}
+
+  .receipt-row{display:flex; gap:14px; justify-content:center; margin:16px 0; flex-wrap:wrap; min-height:70px;}
+  .receipt{width:150px; border:1px solid var(--line); border-radius:8px; background:var(--panel); padding:14px; opacity:0; transform:translateY(10px) scale(0.96); transition:opacity .4s ease, transform .4s ease;}
+  .receipt.shown{opacity:1; transform:translateY(0) scale(1);}
+  .receipt.hit{border-color:var(--red);}
+  .receipt .r-label{font-family:var(--mono); font-size:9.5px; color:var(--text-mute); text-transform:uppercase; margin-bottom:6px;}
+  .receipt .r-amount{font-family:var(--mono); font-size:18px; font-weight:700; color:var(--text);}
+  .receipt.hit .r-amount{color:var(--red);}
+  .receipt .r-status{font-family:var(--mono); font-size:10px; margin-top:6px;}
+
+  .demo-btn{display:block; margin:16px auto; font-family:var(--mono); font-size:12.5px; font-weight:700; padding:10px 20px; border-radius:6px; border:1px solid var(--coral); background:transparent; color:var(--coral); cursor:pointer;}
+  .demo-btn:hover{background:var(--coral); color:var(--bg);}
+  .demo-btn:disabled{opacity:0.4; cursor:default;}
+  .demo-btn.secondary{border-color:var(--blue); color:var(--blue);}
+  .demo-btn.secondary:hover{background:var(--blue); color:var(--bg);}
+
+  .property-card{border:1px solid var(--line); border-radius:10px; background:var(--panel); padding:20px 22px; margin:16px 0; text-align:center;}
+  .property-line{font-family:var(--serif); font-size:19px; color:var(--text); margin-bottom:10px;}
+  .property-line:last-child{margin-bottom:0;}
+  .property-tag{font-family:var(--mono); font-size:9.5px; color:var(--text-mute); text-transform:uppercase; letter-spacing:0.06em; display:block; margin-bottom:6px;}
+
+  .chain-row{display:flex; align-items:center; gap:10px; margin:12px 0; flex-wrap:wrap; opacity:0; transform:translateY(6px); transition:opacity .5s ease, transform .5s ease; justify-content:center;}
+  .chain-row.show{opacity:1; transform:translateY(0);}
+  .chain-claim{flex:1; min-width:180px; max-width:280px; border:1px solid var(--line); border-radius:8px; padding:10px 13px; background:var(--panel); font-size:12.5px; font-style:italic; color:var(--text);}
+  .chain-arrow{font-family:var(--mono); font-size:9px; color:var(--text-mute); text-align:center; min-width:56px;}
+  .chain-badge{font-family:var(--mono); font-size:11px; font-weight:700; border-radius:16px; padding:6px 12px; text-align:center; white-space:nowrap;}
+  .chain-badge.always{background:rgba(94,123,168,0.18); color:var(--blue); border:1px solid var(--blue);}
+  .chain-badge.sometimes{background:rgba(232,184,75,0.18); color:var(--gold); border:1px solid var(--gold);}
+  .chain-code{font-family:var(--mono); font-size:10.5px; background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:7px 11px; color:var(--text-dim); white-space:nowrap;}
+  .chain-code .str{color:var(--green);}
+  .chain-spacer{flex:1; min-width:180px; max-width:280px; opacity:0; visibility:hidden;}
+
+  .center-card{max-width:560px; margin:16px auto 4px; border:1px solid var(--gold); border-radius:10px; padding:16px 20px; background:var(--panel); text-align:center;}
+  .center-card.tech{border-color:var(--blue);}
+  .center-card.tech .reg-tag{color:var(--blue);}
+  .center-card .reg-tag{font-family:var(--mono); font-size:9.5px; text-transform:uppercase; letter-spacing:0.06em; color:var(--gold); display:block; margin-bottom:8px;}
+  .center-card .contrast-line{font-size:13.5px; color:var(--text); margin:0 0 6px; text-align:center;}
+  .center-card .contrast-line:last-child{margin-bottom:0;}
+  .center-card .contrast-line b{color:var(--blue);}
+  .center-card .contrast-line b.gold-term{color:var(--gold);}
+  .center-card p{margin:0; font-size:13px; color:var(--text); text-align:center;}
+
+  .reg-row{display:flex; justify-content:center; gap:13px; margin:14px 0 4px; flex-wrap:wrap;}
+  .reg-card{border-radius:10px; padding:12px 14px; border:1px solid var(--line); background:var(--panel); flex:1; min-width:220px; max-width:270px;}
+  .reg-card .reg-tag{font-family:var(--mono); font-size:9.5px; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:5px; display:block;}
+  .reg-card.plain{border-color:var(--gold);} .reg-card.plain .reg-tag{color:var(--gold);}
+  .reg-card.tech{border-color:var(--blue);} .reg-card.tech .reg-tag{color:var(--blue);}
+  .reg-card p{margin:0; font-size:12.5px; color:var(--text);}
+
+  .compare-wrap{margin:18px 0; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px 18px;}
+  .compare-row{margin-bottom:20px;}
+  .compare-row:last-child{margin-bottom:0;}
+  .compare-label{font-family:var(--mono); font-size:10.5px; margin-bottom:8px; display:flex; align-items:center; gap:8px;}
+  .compare-label .tick{font-size:12px;}
+  .compare-label.chosen{color:var(--green);}
+  .compare-label.notchosen{color:var(--text-mute);}
+  .compare-track{position:relative; height:34px; background:var(--bg); border-radius:6px; overflow:visible;}
+  .compare-fault-zone{position:absolute; top:0; height:100%; left:26%; width:48%; background:rgba(229,87,58,0.16); border-left:1px dashed var(--red); border-right:1px dashed var(--red); border-radius:2px; z-index:1;}
+  .sweep-trail{position:absolute; top:0; left:0; height:100%; width:0%; background:rgba(127,216,143,0.22); border-radius:6px 0 0 6px; z-index:0;}
+  .sweep-trail.in-zone{background:rgba(229,87,58,0.28);}
+  .sweep-marker{position:absolute; top:50%; left:0%; width:11px; height:11px; border-radius:50%; background:var(--green); transform:translate(-50%,-50%); box-shadow:0 0 0 0 rgba(127,216,143,0.5); opacity:0; z-index:2;}
+  .sweep-marker.on{opacity:1;}
+  .sweep-marker.in-zone{background:var(--red); box-shadow:0 0 0 5px rgba(229,87,58,0.22);}
+  .sweep-marker.catch-pulse{animation:catchPulse .5s ease;}
+  @keyframes catchPulse{0%{transform:translate(-50%,-50%) scale(1);} 50%{transform:translate(-50%,-50%) scale(1.9);} 100%{transform:translate(-50%,-50%) scale(1);}}
+  .sweep-label{position:absolute; top:calc(100% + 8px); transform:translateX(-50%); font-family:var(--mono); font-size:9.5px; color:var(--red); white-space:nowrap; opacity:0; transition:opacity .3s ease; z-index:3;}
+  .sweep-label.show{opacity:1;}
+  .ghost-dot{position:absolute; top:50%; width:9px; height:9px; border-radius:50%; background:var(--red); transform:translate(-50%,-50%) scale(0); opacity:0.85; transition:transform .4s ease; z-index:2;}
+  .ghost-dot.show{transform:translate(-50%,-50%) scale(1);}
+  .ghost-label{position:absolute; top:24px; transform:translateX(-50%); font-family:var(--mono); font-size:9px; color:var(--red); white-space:nowrap; text-align:center; opacity:0; transition:opacity .3s ease; z-index:3; width:150px;}
+  .ghost-label.show{opacity:1;}
+  .compare-caption{font-family:var(--mono); font-size:9.5px; color:var(--text-mute); margin-top:38px; text-align:center;}
+  .compare-caption.warn{color:var(--red);}
+
+  .fault-menu{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:16px 0;}
+  .fault-tag{font-family:var(--mono); font-size:10.5px; color:var(--text-mute); border:1px solid var(--line); border-radius:16px; padding:6px 12px; background:var(--panel);}
+  .fault-tag.hit{color:var(--red); border-color:var(--red); background:rgba(229,87,58,0.1);}
+
+  .seed-chain{margin:16px 0;}
+  .seed-chain-step{display:flex; align-items:center; gap:12px; padding:10px 0; opacity:0; transform:translateY(6px); transition:opacity .4s ease, transform .4s ease;}
+  .seed-chain-step.show{opacity:1; transform:translateY(0);}
+  .seed-chain-num{font-family:var(--mono); font-size:11px; color:var(--gold); border:1px solid var(--gold); border-radius:50%; width:22px; height:22px; flex-shrink:0; display:flex; align-items:center; justify-content:center;}
+  .seed-chain-text{font-size:13.5px; color:var(--text);}
+  .seed-chain-text .seed-val{font-family:var(--mono); color:var(--green); font-weight:700;}
+  .decision-log{margin:18px 0; border:1px solid var(--line); border-radius:10px; background:var(--panel); padding:14px 0;}
+  .decision-item{display:flex; align-items:center; justify-content:space-between; padding:9px 20px; opacity:0; transform:translateX(-8px); transition:opacity .4s ease, transform .4s ease;}
+  .decision-item.show{opacity:1; transform:translateX(0);}
+  .decision-key{font-family:var(--mono); font-size:11.5px; color:var(--text-mute);}
+  .decision-val{font-family:var(--mono); font-size:11.5px; color:var(--green); text-align:right;}
+
+  .violated-banner{text-align:center; margin:12px 0; padding:11px; border:1px solid var(--red); border-radius:8px; color:var(--red); font-family:var(--mono); font-weight:700; font-size:11.5px;}
+  .solved-banner{text-align:center; margin-top:14px; padding:14px; border:1px solid var(--green); border-radius:10px; color:var(--green); font-family:var(--mono); font-weight:700; letter-spacing:0.05em;}
+
+  .code-block{font-family:var(--mono); font-size:12px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin:12px 0; overflow-x:auto; white-space:pre; color:var(--text-dim); line-height:1.65;}
+  .code-block .str{color:var(--green);}
+  .term{font-family:var(--mono); font-size:12px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px 15px; margin:0 0 12px; display:none;}
+  .term .ok{color:var(--green);} .term .warn{color:var(--red);} .term .gold{color:var(--gold);} .term .dim{color:var(--text-mute);}
+
+  .report-card{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:15px 17px; margin:14px 0;}
+  .report-section{margin-bottom:12px;}
+  .report-section:last-child{margin-bottom:0;}
+  .report-section-title{font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-mute); margin-bottom:6px;}
+  .report-row{display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px dashed var(--line); font-family:var(--mono); font-size:12px; gap:10px;}
+  .report-row:last-child{border-bottom:none;}
+  .report-row .k{color:var(--text-mute);} .report-row .v{color:var(--text); text-align:right;}
+  .report-row.fail .v{color:var(--red);}
+
+  .causality-panel{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:18px; margin:16px 0;}
+  .causality-graph{width:100%; height:auto; display:block;}
+  .causality-readout{font-family:var(--mono); font-size:11.5px; color:var(--text-mute); text-align:center; min-height:18px; margin-top:10px;}
+  .causality-readout .hit{color:var(--red); font-weight:700;}
+
+  .ch-nav{display:flex; justify-content:space-between; margin-top:26px; padding-top:16px; border-top:1px solid var(--line);}
+  .ch-nav button{font-family:var(--mono); font-size:12px; padding:9px 16px; border-radius:6px; border:1px solid var(--line); background:transparent; color:var(--text-dim); cursor:pointer;}
+  .ch-nav button:hover{border-color:var(--coral); color:var(--coral);}
+</style>
+</head>
+<body>
+<div class="main">
+  <div class="demo-progress" id="demoProgress">Beat 1 of 9</div>
+
+  <!-- BEAT 1 -->
+  <div class="demo-beat active" data-beat="1">
+    <div class="demo-eyebrow">Live Demo &middot; Beat 1</div>
+    <h1>The system, running normally</h1>
+    <div class="h1-sub">this is our payment infrastructure: a customer request, an API that authorizes it, a database that records it</div>
+    <div class="diagram-flow" id="flow1">
+      <div class="flow-box"><div class="fl">Customer</div></div>
+      <div class="flow-arrow-wrap"><div class="flow-arrow" data-arrow="1">&#8594;</div></div>
+      <div class="flow-box"><div class="fl">Payment API</div></div>
+      <div class="flow-arrow-wrap"><div class="flow-arrow" data-arrow="1">&#8594;</div></div>
+      <div class="flow-box"><div class="fl">Database</div></div>
+    </div>
+    <button class="demo-btn" id="normalRunBtn">Run a normal request</button>
+    <div class="receipt-row" id="receiptRowNormal"></div>
+    <div class="center-card" id="normalExplain" style="display:none; border-color:var(--line);">
+      <p style="margin:0; font-size:13px;">One request comes in, gets authorized once, and one row gets written. Nothing unusual yet. This is our baseline.</p>
+    </div>
+  </div>
+
+  <!-- BEAT 2: the property -->
+  <div class="demo-beat" data-beat="2">
+    <div class="demo-eyebrow">Live Demo &middot; Beat 2</div>
+    <h1>The property we're testing for</h1>
+    <div class="h1-sub">before we touch any code, here's the rule this system has to hold to</div>
+    <div class="property-card">
+      <span class="property-tag">the guarantee</span>
+      <div class="property-line">"A payment should never process twice."</div>
+      <span class="property-tag" style="margin-top:8px;">the setup that could break it</span>
+      <div class="property-line">"A network fault triggers a mid-request retry."</div>
+    </div>
+    <div class="reg-row">
+      <div class="reg-card plain"><span class="reg-tag">plain terms</span><p>Everything from here forward, including the code, the fault, and the seed, exists to test exactly these two sentences, nothing more.</p></div>
+    </div>
+  </div>
+
+  <!-- BEAT 3: claim to code -->
+  <div class="demo-beat" data-beat="3">
+    <div class="demo-eyebrow">Live Demo &middot; Beat 3</div>
+    <h1>Turning the promise into something checkable</h1>
+    <div class="h1-sub">a property is a sentence. an assertion is the line that actually enforces it</div>
+    <button class="demo-btn" id="showChainBtn">Trace it through</button>
+
+    <div class="chain-row" id="chain1a">
+      <div class="chain-claim">"a payment should never process twice"</div>
+      <div class="chain-arrow">classified as</div>
+      <div class="chain-badge always">always</div>
+    </div>
+    <div class="chain-row" id="chain1b">
+      <div class="chain-spacer">spacer</div>
+      <div class="chain-arrow">enforced by</div>
+      <div class="chain-code">always(count &lt;= <span class="str">1</span>, <span class="str">"processed at most once"</span>)</div>
+    </div>
+
+    <div style="height:8px;"></div>
+
+    <div class="chain-row" id="chain2a">
+      <div class="chain-claim">"a network fault triggers a mid-request retry"</div>
+      <div class="chain-arrow">classified as</div>
+      <div class="chain-badge sometimes">sometimes</div>
+    </div>
+    <div class="chain-row" id="chain2b">
+      <div class="chain-spacer">spacer</div>
+      <div class="chain-arrow">enforced by</div>
+      <div class="chain-code">sometimes(retry_reason == <span class="str">"timeout"</span>, <span class="str">"retry after fault"</span>)</div>
+    </div>
+
+    <div class="center-card" id="chainExplain" style="display:none;">
+      <span class="reg-tag">plain terms</span>
+      <p class="contrast-line"><b class="gold-term">Always</b> catches whether things went wrong <em>when</em> that setup occurred.</p>
+      <p class="contrast-line"><b>Sometimes</b> proves the dangerous <em>setup</em> occurred at least once.</p>
+    </div>
+  </div>
+
+  <!-- BEAT 4: driver command -->
+  <div class="demo-beat" data-beat="4">
+    <div class="demo-eyebrow">Live Demo &middot; Beat 4</div>
+    <h1>When does this check even run?</h1>
+    <div class="h1-sub">a driver command decides when your assertion code runs relative to the chaos</div>
+    <p style="text-align:center; font-size:13px;">Does it run continuously while faults are actively happening? Only after things settle? Concurrently with other work? That timing is its own decision, separate from the rule itself. Here's the same fault window checked two different ways.</p>
+    <button class="demo-btn" id="buildTimelineBtn">Compare the two schedules</button>
+    <div class="compare-wrap">
+      <div class="compare-row">
+        <div class="compare-label chosen"><span class="tick">&#10003;</span> our choice: check continuously, faults included</div>
+        <div class="compare-track" id="trackContinuous">
+          <div class="compare-fault-zone"></div>
+          <div class="sweep-trail" id="trailContinuous"></div>
+          <div class="sweep-marker" id="markerContinuous"></div>
+          <div class="sweep-label" id="catchLabel">caught, right as the retry fires</div>
+        </div>
+        <div class="compare-caption" id="continuousCaption">the check never stops watching, so the moment the retry fires, it's already there</div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-label notchosen"><span class="tick">&#10007;</span> not chosen: check only after things settle</div>
+        <div class="compare-track" id="trackEndOnly">
+          <div class="compare-fault-zone"></div>
+          <div class="sweep-marker" id="markerEndOnly"></div>
+          <div class="ghost-dot" id="ghostDot" style="left:46%;"></div>
+          <div class="ghost-label" id="ghostLabel" style="left:46%;">the duplicate was already written here, nobody was watching yet</div>
+        </div>
+        <div class="compare-caption warn" id="endOnlyCaption">by the time this check runs, the duplicate row is already sitting quietly in the database</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BEAT 5: fault injection -->
+  <div class="demo-beat" data-beat="5">
+    <div class="demo-eyebrow">Live Demo &middot; Beat 5</div>
+    <h1>What the Determinator is doing right now</h1>
+    <div class="h1-sub">fault injection is the Determinator working in the background, manufacturing hostile conditions for our assertions to be tested against</div>
+    <div class="fault-menu" id="faultMenu">
+      <span class="fault-tag">drop a packet</span>
+      <span class="fault-tag">kill a node</span>
+      <span class="fault-tag" id="faultDelay">delay a confirmation</span>
+      <span class="fault-tag">desync a clock</span>
+      <span class="fault-tag">pause a thread</span>
+    </div>
+    <div class="diagram-flow" id="flow5">
+      <div class="flow-box"><div class="fl">Customer</div></div>
+      <div class="flow-arrow-wrap">
+        <div class="flow-arrow" data-arrow="5">&#8594;</div>
+        <div class="flow-note" id="faultNote5">confirmation delayed</div>
+      </div>
+      <div class="flow-box"><div class="fl">Payment API</div></div>
+      <div class="flow-arrow-wrap"><div class="flow-arrow" data-arrow="5">&#8594;</div></div>
+      <div class="flow-box"><div class="fl">Database</div></div>
+    </div>
+    <button class="demo-btn" id="dropFaultBtn">Inject this one, right now</button>
+    <div class="receipt-row" id="receiptRowFault"></div>
+    <div class="violated-banner" id="violatedBanner5" style="display:none;">always("processed at most once") VIOLATED. This is the duplicate charge bug.</div>
+  </div>
+
+  <!-- BEAT 6: seed -->
+  <div class="demo-beat" data-beat="6">
+    <div class="demo-eyebrow">Live Demo &middot; Beat 6</div>
+    <h1>How this becomes reproducible</h1>
+    <button class="demo-btn" id="showSeedChainBtn">Walk through the mechanism</button>
+    <div class="seed-chain">
+      <div class="seed-chain-step" id="sc1"><div class="seed-chain-num">1</div><div class="seed-chain-text">A <b>seed</b> is a starting number, fed into a <b>pseudorandom number generator</b>. <span class="seed-val">seed = 18492731</span></div></div>
+      <div class="seed-chain-step" id="sc2"><div class="seed-chain-num">2</div><div class="seed-chain-text">The pseudorandom number generator uses that number to generate a sequence.</div></div>
+      <div class="seed-chain-step" id="sc3"><div class="seed-chain-num">3</div><div class="seed-chain-text">The Determinator uses that sequence to make its next decision, over and over.</div></div>
+    </div>
+    <div class="reg-row">
+      <div class="reg-card plain"><span class="reg-tag">plain terms</span><p>Same seed in, same sequence out, every time. That's why replaying it regenerates this exact bug instead of a similar one.</p></div>
+      <div class="reg-card tech"><span class="reg-tag">a pseudorandom number generator, precisely</span><p>A formula that takes a number in and spits a number out, and that output becomes the input for the next call. What it does with a number depends on the question being asked, but which number it gets never depends on the question.</p></div>
+    </div>
+    <button class="demo-btn secondary" id="showDecisionsBtn">Show what this seed's sequence decided</button>
+    <div class="decision-log" id="decisionList">
+      <div class="decision-item"><span class="decision-key">thread</span><span class="decision-val">payment-worker-2 paused 340ms mid write &#10003;</span></div>
+      <div class="decision-item"><span class="decision-key">network</span><span class="decision-val">ack delayed 612ms on the wire &#10003;</span></div>
+      <div class="decision-item"><span class="decision-key">branch</span><span class="decision-val">retry-without-check taken &#10003;</span></div>
+    </div>
+  </div>
+
+  <!-- BEAT 7: replay -->
+  <div class="demo-beat" data-beat="7">
+    <div class="demo-eyebrow">Live Demo &middot; Beat 7</div>
+    <h1>Same seed, same failure, on demand</h1>
+    <div class="h1-sub">nobody clicks a fault by hand this time, the seed regenerates the decisions on its own</div>
+    <button class="demo-btn" id="replaySeedBtn">Replay seed 18492731</button>
+    <div class="decision-log" id="decisionListReplay">
+      <div class="decision-item"><span class="decision-key">thread</span><span class="decision-val">payment-worker-2 paused 340ms mid write &#10003;</span></div>
+      <div class="decision-item"><span class="decision-key">network</span><span class="decision-val">ack delayed 612ms on the wire &#10003;</span></div>
+      <div class="decision-item"><span class="decision-key">branch</span><span class="decision-val">retry-without-check taken &#10003;</span></div>
+    </div>
+    <div class="receipt-row" id="receiptRowReplay"></div>
+    <div class="violated-banner" id="violatedBannerReplay" style="display:none;">always("processed at most once") VIOLATED, identical to the first run</div>
+    <div class="reg-row">
+      <div class="reg-card plain"><span class="reg-tag">plain terms</span><p>Byte for byte the same bug. That's the whole payoff of a seed: a report you can hand an engineer, not a story they have to take on faith.</p></div>
+    </div>
+  </div>
+
+  <!-- BEAT 8: triage report -->
+  <div class="demo-beat" data-beat="8">
+    <div class="demo-eyebrow">Live Demo &middot; Beat 8</div>
+    <h1>The triage report</h1>
+    <div class="h1-sub">every test run generates one of these automatically, a high level overview plus a longer history of findings</div>
+    <div class="report-card">
+      <div class="report-section">
+        <div class="report-section-title">Findings</div>
+        <div class="report-row fail"><span class="k">payment processed at most once</span><span class="v">FAILED</span></div>
+        <div class="report-row"><span class="k">retry fires within 1s of timeout</span><span class="v">PASSED</span></div>
+      </div>
+      <div class="report-section">
+        <div class="report-section-title">Environment</div>
+        <div class="report-row"><span class="k">system under test</span><span class="v">payment-api, database, worker</span></div>
+        <div class="report-row"><span class="k">container image</span><span class="v">payment-api:sha-8f21c3</span></div>
+        <div class="report-row"><span class="k">region</span><span class="v">us-east-1</span></div>
+      </div>
+      <div class="report-section">
+        <div class="report-section-title">Utilization</div>
+        <div class="report-row"><span class="k">runs in this session</span><span class="v">41,302</span></div>
+        <div class="report-row"><span class="k">wall clock time</span><span class="v">14m 22s</span></div>
+        <div class="report-row"><span class="k">faults injected</span><span class="v">3,118</span></div>
+      </div>
+      <div class="report-section">
+        <div class="report-section-title">Properties</div>
+        <div class="report-row fail"><span class="k">always: processed at most once</span><span class="v">FAILED, seed 18492731</span></div>
+        <div class="report-row"><span class="k">sometimes: retry after fault</span><span class="v">confirmed</span></div>
+      </div>
+    </div>
+    <div class="reg-row">
+      <div class="reg-card plain"><span class="reg-tag">plain terms</span><p>For any failure sitting in the Properties section, we can generate a causality analysis: more detail on the exact timing that caused it. That's next.</p></div>
+    </div>
+  </div>
+
+  <!-- BEAT 9: causality analysis -->
+  <div class="demo-beat" data-beat="9">
+    <div class="demo-eyebrow">Live Demo &middot; Beat 9</div>
+    <h1>Causality analysis</h1>
+    <div class="h1-sub">generated from the failure above, showing not just that it happened but exactly when it became unavoidable</div>
+    <div class="causality-panel">
+      <button class="demo-btn" id="causalityBtn" style="margin-top:0;">Run causality analysis</button>
+      <svg class="causality-graph" id="causalityGraph" viewBox="0 0 640 200" xmlns="http://www.w3.org/2000/svg">
+        <line x1="40" y1="20" x2="40" y2="160" stroke="#33232f" stroke-width="1"/>
+        <line x1="40" y1="160" x2="600" y2="160" stroke="#33232f" stroke-width="1"/>
+        <text x="8" y="24" font-family="JetBrains Mono" font-size="9" fill="#7c6d7f">100%</text>
+        <text x="16" y="164" font-family="JetBrains Mono" font-size="9" fill="#7c6d7f">0%</text>
+        <text x="55" y="180" font-family="JetBrains Mono" font-size="9" fill="#7c6d7f">request</text>
+        <text x="360" y="180" font-family="JetBrains Mono" font-size="9" fill="#7c6d7f">retry fires</text>
+        <text x="500" y="180" font-family="JetBrains Mono" font-size="9" fill="#7c6d7f">duplicate write</text>
+        <path id="causalityPath" d="M40 158 L110 154 L180 150 L250 140 L310 128 L360 40 L420 38 L500 36 L590 34" fill="none" stroke="#5b7ba8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0;"/>
+        <circle id="causalityJumpDot" cx="360" cy="40" r="0" fill="#e5573a"/>
+        <line id="causalityJumpLine" x1="360" y1="160" x2="360" y2="40" stroke="#e5573a" stroke-width="1.5" stroke-dasharray="3,3" style="opacity:0;"/>
+      </svg>
+      <div class="causality-readout" id="causalityReadout">Antithesis rewinds this timeline and re-explores forward from earlier points, checking how often the bug still happens from each one.</div>
+    </div>
+    <div class="reg-row">
+      <div class="reg-card plain"><span class="reg-tag">plain terms</span><p>Before the jump, the outcome could still go either way. At the retry firing, it locks in. That's the exact moment worth fixing.</p></div>
+    </div>
+    <div class="solved-banner">CASE FOUND, REPRODUCIBLE, AND UNDERSTOOD</div>
+  </div>
+
+  <div class="ch-nav">
+    <button id="demoPrevBtn">Previous</button>
+    <button id="demoNextBtn">Next</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const beats = document.querySelectorAll('.demo-beat');
+  let idx = 1;
+  function show(n){
+    idx = n;
+    beats.forEach(b => b.classList.toggle('active', parseInt(b.dataset.beat,10) === n));
+    document.getElementById('demoProgress').textContent = 'Beat ' + n + ' of ' + beats.length;
+    document.getElementById('demoPrevBtn').style.visibility = n === 1 ? 'hidden' : 'visible';
+    document.getElementById('demoNextBtn').textContent = n === beats.length ? 'Restart' : 'Next';
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  document.getElementById('demoNextBtn').addEventListener('click', () => show(idx === beats.length ? 1 : idx + 1));
+  document.getElementById('demoPrevBtn').addEventListener('click', () => { if(idx > 1) show(idx - 1); });
+
+  function buildReceipt(containerId, duplicate){
+    const row = document.getElementById(containerId);
+    row.innerHTML = '';
+    const first = document.createElement('div');
+    first.className = 'receipt';
+    first.innerHTML = '<div class="r-label">Charge #1</div><div class="r-amount">$48.00</div><div class="r-status" style="color:var(--green)">Authorized</div>';
+    row.appendChild(first);
+    setTimeout(() => first.classList.add('shown'), 50);
+    if(duplicate){
+      const second = document.createElement('div');
+      second.className = 'receipt hit';
+      second.innerHTML = '<div class="r-label">Charge #2</div><div class="r-amount">$48.00</div><div class="r-status" style="color:var(--red)">Duplicate</div>';
+      row.appendChild(second);
+      setTimeout(() => second.classList.add('shown'), 850);
+    }
+  }
+
+  function replayable(btnId, runFn, cooldownMs){
+    const btn = document.getElementById(btnId);
+    btn.addEventListener('click', () => {
+      btn.disabled = true;
+      runFn();
+      setTimeout(() => { btn.disabled = false; }, cooldownMs || 1200);
+    });
+  }
+
+  // Beat 1
+  replayable('normalRunBtn', () => {
+    document.getElementById('normalExplain').style.display = 'none';
+    document.querySelectorAll('#flow1 [data-arrow]').forEach(a => a.classList.remove('pulse'));
+    document.getElementById('receiptRowNormal').innerHTML = '';
+    document.querySelectorAll('#flow1 [data-arrow]').forEach((a,i) => setTimeout(() => a.classList.add('pulse'), i*280));
+    buildReceipt('receiptRowNormal', false);
+    setTimeout(() => { document.getElementById('normalExplain').style.display = 'block'; }, 600);
+  }, 1400);
+
+  // Beat 3
+  replayable('showChainBtn', () => {
+    ['chain1a','chain1b','chain2a','chain2b'].forEach(id => document.getElementById(id).classList.remove('show'));
+    document.getElementById('chainExplain').style.display = 'none';
+    ['chain1a','chain1b','chain2a','chain2b'].forEach((id,i) => setTimeout(() => document.getElementById(id).classList.add('show'), i*420));
+    setTimeout(() => { document.getElementById('chainExplain').style.display = 'block'; }, 1900);
+  }, 2200);
+
+  // Beat 4: continuous sweep vs single end check
+  replayable('buildTimelineBtn', () => {
+    const DURATION = 2600;
+    const ZONE_START = 0.26, ZONE_END = 0.74, CATCH_AT = 0.46;
+
+    const trail = document.getElementById('trailContinuous');
+    const marker1 = document.getElementById('markerContinuous');
+    const catchLabel = document.getElementById('catchLabel');
+    trail.style.transition = 'none';
+    marker1.style.transition = 'none';
+    trail.style.width = '0%';
+    marker1.style.left = '0%';
+    marker1.classList.remove('in-zone','catch-pulse');
+    trail.classList.remove('in-zone');
+    catchLabel.classList.remove('show');
+    marker1.classList.add('on');
+    void trail.offsetWidth;
+
+    const marker2 = document.getElementById('markerEndOnly');
+    const ghost = document.getElementById('ghostDot');
+    const ghostLabel = document.getElementById('ghostLabel');
+    marker2.style.transition = 'none';
+    marker2.style.left = '0%';
+    marker2.classList.remove('on','in-zone');
+    ghost.classList.remove('show');
+    ghostLabel.classList.remove('show');
+    void marker2.offsetWidth;
+
+    requestAnimationFrame(() => {
+      trail.style.transition = `width ${DURATION}ms linear`;
+      marker1.style.transition = `left ${DURATION}ms linear`;
+      trail.style.width = '100%';
+      marker1.style.left = '100%';
+    });
+    setTimeout(() => { marker1.classList.add('in-zone'); trail.classList.add('in-zone'); }, DURATION*ZONE_START);
+    setTimeout(() => {
+      marker1.classList.add('catch-pulse');
+      catchLabel.style.left = (CATCH_AT*100)+'%';
+      catchLabel.classList.add('show');
+      setTimeout(() => marker1.classList.remove('catch-pulse'), 500);
+    }, DURATION*CATCH_AT);
+    setTimeout(() => { marker1.classList.remove('in-zone'); trail.classList.remove('in-zone'); catchLabel.classList.remove('show'); }, DURATION*ZONE_END);
+
+    setTimeout(() => {
+      marker2.classList.add('on');
+      marker2.style.transition = 'left 350ms ease';
+      marker2.style.left = '90%';
+    }, DURATION*0.86);
+    setTimeout(() => {
+      ghost.classList.add('show');
+      ghostLabel.classList.add('show');
+    }, DURATION*0.86 + 500);
+  }, 4200);
+
+  // Beat 5
+  replayable('dropFaultBtn', () => {
+    document.getElementById('faultDelay').classList.remove('hit');
+    document.querySelectorAll('#flow5 [data-arrow]').forEach(a => a.classList.remove('hit'));
+    document.getElementById('faultNote5').classList.remove('show');
+    document.getElementById('receiptRowFault').innerHTML = '';
+    document.getElementById('violatedBanner5').style.display = 'none';
+    document.getElementById('faultDelay').classList.add('hit');
+    document.querySelectorAll('#flow5 [data-arrow]')[0].classList.add('hit');
+    document.getElementById('faultNote5').classList.add('show');
+    setTimeout(() => { buildReceipt('receiptRowFault', true); }, 500);
+    setTimeout(() => { document.getElementById('violatedBanner5').style.display = 'block'; }, 1400);
+  }, 1800);
+
+  // Beat 6
+  replayable('showSeedChainBtn', () => {
+    ['sc1','sc2','sc3'].forEach(id => document.getElementById(id).classList.remove('show'));
+    ['sc1','sc2','sc3'].forEach((id,i) => setTimeout(() => document.getElementById(id).classList.add('show'), i*500));
+  }, 1800);
+  replayable('showDecisionsBtn', () => {
+    document.querySelectorAll('#decisionList .decision-item').forEach(d => d.classList.remove('show'));
+    document.querySelectorAll('#decisionList .decision-item').forEach((d,i) => setTimeout(() => d.classList.add('show'), i*350));
+  }, 1400);
+
+  // Beat 7: replay, reuses the decision log and receipts
+  replayable('replaySeedBtn', () => {
+    document.querySelectorAll('#decisionListReplay .decision-item').forEach(d => d.classList.remove('show'));
+    document.getElementById('receiptRowReplay').innerHTML = '';
+    document.getElementById('violatedBannerReplay').style.display = 'none';
+    document.querySelectorAll('#decisionListReplay .decision-item').forEach((d,i) => setTimeout(() => d.classList.add('show'), i*300));
+    setTimeout(() => { buildReceipt('receiptRowReplay', true); }, 1100);
+    setTimeout(() => { document.getElementById('violatedBannerReplay').style.display = 'block'; }, 1900);
+  }, 2200);
+
+  // Beat 9
+  replayable('causalityBtn', () => {
+    const path = document.getElementById('causalityPath');
+    const jumpDot = document.getElementById('causalityJumpDot');
+    const jumpLine = document.getElementById('causalityJumpLine');
+    const readout = document.getElementById('causalityReadout');
+    path.style.transition = 'none';
+    path.style.opacity = '1';
+    const len = path.getTotalLength();
+    path.style.strokeDasharray = len;
+    path.style.strokeDashoffset = len;
+    path.getBoundingClientRect();
+    path.style.transition = 'stroke-dashoffset 1.5s ease';
+    path.style.strokeDashoffset = '0';
+    jumpDot.setAttribute('r','0'); jumpLine.style.opacity = '0';
+    readout.innerHTML = 'Rewinding the timeline and exploring forward from each point&hellip;';
+    setTimeout(() => {
+      jumpLine.style.transition = 'opacity .4s ease';
+      jumpLine.style.opacity = '1';
+      jumpDot.setAttribute('r','5');
+      readout.innerHTML = 'Sharp jump at <span class="hit">the retry firing</span>. Before this point, the outcome could still go either way. After it, the duplicate is already certain.';
+    }, 1550);
+  }, 1800);
+
+  show(1);
+})();
+</script>
+</body>
+</html>
