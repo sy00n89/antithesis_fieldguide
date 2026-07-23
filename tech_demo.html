@@ -186,7 +186,7 @@
       <span class="property-tag">the guarantee</span>
       <div class="property-line">"A payment should never process twice."</div>
       <span class="property-tag" style="margin-top:8px;">the setup that could break it</span>
-      <div class="property-line">"nodes handling the request gets disconnected."</div>
+      <div class="property-line">"A network fault triggers a mid-request retry."</div>
     </div>
     <div class="reg-row">
       <div class="reg-card plain"><span class="reg-tag">plain terms</span><p>Everything from here forward, including the code, the fault, and the seed, exists to test exactly these two sentences, nothing more.</p></div>
@@ -214,14 +214,14 @@
     <div style="height:8px;"></div>
 
     <div class="chain-row" id="chain2a">
-      <div class="chain-claim">"nodes handling the request gets disconnected"</div>
+      <div class="chain-claim">"a network fault triggers a mid-request retry"</div>
       <div class="chain-arrow">classified as</div>
       <div class="chain-badge sometimes">sometimes</div>
     </div>
     <div class="chain-row" id="chain2b">
       <div class="chain-spacer">spacer</div>
       <div class="chain-arrow">enforced by</div>
-      <div class="chain-code">sometimes(nodes_partitioned, <span class="str">"nodes became disconnected during the request"</span>)</div>
+      <div class="chain-code">sometimes(retry_reason == <span class="str">"timeout"</span>, <span class="str">"retry after fault"</span>)</div>
     </div>
 
     <div class="center-card" id="chainExplain" style="display:none;">
