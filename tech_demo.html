@@ -86,6 +86,18 @@
   .reg-card.tech{border-color:var(--blue);} .reg-card.tech .reg-tag{color:var(--blue);}
   .reg-card p{margin:0; font-size:12.5px; color:var(--text);}
 
+  /* Beat 4: two-decisions cards */
+  .decision-pair{display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin:18px 0 6px;}
+  .decision-card{flex:1; min-width:230px; max-width:310px; border:1px solid var(--line); border-radius:10px; background:var(--panel); padding:17px 19px;}
+  .decision-card.assertion{border-color:var(--gold);}
+  .decision-card.driver{border-color:var(--blue);}
+  .decision-card .dc-tag{font-family:var(--mono); font-size:9.5px; text-transform:uppercase; letter-spacing:0.06em; display:block; margin-bottom:8px;}
+  .decision-card.assertion .dc-tag{color:var(--gold);}
+  .decision-card.driver .dc-tag{color:var(--blue);}
+  .decision-card h3{font-family:var(--serif); font-weight:400; font-size:16.5px; margin:0 0 8px; color:var(--text);}
+  .decision-card p{margin:0; font-size:12.5px; color:var(--text-dim);}
+  .decision-connector{max-width:560px; margin:6px auto 4px; text-align:center; font-family:var(--mono); font-size:11.5px; color:var(--text-mute); font-style:italic;}
+
   .compare-wrap{margin:18px 0; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px 18px;}
   .compare-row{margin-bottom:20px;}
   .compare-row:last-child{margin-bottom:0;}
@@ -231,26 +243,40 @@
     </div>
   </div>
 
-  <!-- BEAT 4: driver command -->
+  <!-- BEAT 4: two decisions, both yours -->
   <div class="demo-beat" data-beat="4">
     <div class="demo-eyebrow">Live Demo &middot; Beat 4</div>
-    <h1>When does this check even run?</h1>
-    <div class="h1-sub">a driver command decides when your assertion code runs relative to the chaos</div>
-    <p style="text-align:center; font-size:13px;">Does it run continuously while faults are actively happening? Only after things settle? Concurrently with other work? That timing is its own decision, separate from the rule itself. Here's the same fault window checked two different ways.</p>
+    <h1>When your check actually runs</h1>
+    <div class="h1-sub">a driver command decides when your assertion code runs relative to the chaos, that's your call too</div>
+
+    <div class="decision-pair">
+      <div class="decision-card assertion">
+        <span class="dc-tag">the assertion</span>
+        <h3>What counts as broken</h3>
+        <p>This is the property itself, the promise your system makes. Once you've written it, Antithesis takes it from here and tries everything it can to break it.</p>
+      </div>
+      <div class="decision-card driver">
+        <span class="dc-tag">the driver command</span>
+        <h3>When you're watching for it</h3>
+        <p>Part of defining that same property: should the check run live, while things are happening, or only after things settle? Antithesis handles the chaos either way, this just tells it when to look.</p>
+      </div>
+    </div>
+    <div class="decision-connector">Antithesis owns everything in between. Both decisions on either side are yours.</div>
+
     <button class="demo-btn" id="buildTimelineBtn">Compare the two schedules</button>
     <div class="compare-wrap">
       <div class="compare-row">
-        <div class="compare-label chosen"><span class="tick">&#10003;</span> our choice: check continuously, faults included</div>
+        <div class="compare-label chosen"><span class="tick">&#10003;</span> our choice: watching live, faults included</div>
         <div class="compare-track" id="trackContinuous">
           <div class="compare-fault-zone"></div>
           <div class="sweep-trail" id="trailContinuous"></div>
           <div class="sweep-marker" id="markerContinuous"></div>
           <div class="sweep-label" id="catchLabel">caught, right as the retry fires</div>
         </div>
-        <div class="compare-caption" id="continuousCaption">the check never stops watching, so the moment the retry fires, it's already there</div>
+        <div class="compare-caption" id="continuousCaption">the assertion never stops watching, so the moment the retry fires, it's already there</div>
       </div>
       <div class="compare-row">
-        <div class="compare-label notchosen"><span class="tick">&#10007;</span> not chosen: check only after things settle</div>
+        <div class="compare-label notchosen"><span class="tick">&#10007;</span> not chosen: watching only after things settle</div>
         <div class="compare-track" id="trackEndOnly">
           <div class="compare-fault-zone"></div>
           <div class="sweep-marker" id="markerEndOnly"></div>
@@ -260,13 +286,16 @@
         <div class="compare-caption warn" id="endOnlyCaption">by the time this check runs, the duplicate row is already sitting quietly in the database</div>
       </div>
     </div>
+    <div class="reg-row">
+      <div class="reg-card plain"><span class="reg-tag">plain terms</span><p>Same rule, same fault. The only thing that changed was where we decided to look.</p></div>
+    </div>
   </div>
 
   <!-- BEAT 5: fault injection -->
   <div class="demo-beat" data-beat="5">
     <div class="demo-eyebrow">Live Demo &middot; Beat 5</div>
     <h1>What the Determinator is doing right now</h1>
-    <div class="h1-sub">fault injection is the Determinator working in the background, manufacturing hostile conditions for our assertions to be tested against</div>
+    <div class="h1-sub">fault injection is the Determinator working in the background, manufacturing hostile conditions for our assertion to be tested against. In a real run it tries thousands of these combinations automatically, across many runs, we're isolating just one here so you can see the mechanism clearly.</div>
     <div class="fault-menu" id="faultMenu">
       <span class="fault-tag">drop a packet</span>
       <span class="fault-tag">kill a node</span>
@@ -284,7 +313,7 @@
       <div class="flow-arrow-wrap"><div class="flow-arrow" data-arrow="5">&#8594;</div></div>
       <div class="flow-box"><div class="fl">Database</div></div>
     </div>
-    <button class="demo-btn" id="dropFaultBtn">Inject this one, right now</button>
+    <button class="demo-btn" id="dropFaultBtn">Watch Antithesis trigger one</button>
     <div class="receipt-row" id="receiptRowFault"></div>
     <div class="violated-banner" id="violatedBanner5" style="display:none;">always("processed at most once") VIOLATED. This is the duplicate charge bug.</div>
   </div>
@@ -496,7 +525,7 @@
       catchLabel.classList.add('show');
       setTimeout(() => marker1.classList.remove('catch-pulse'), 500);
     }, DURATION*CATCH_AT);
-    setTimeout(() => { marker1.classList.remove('in-zone'); trail.classList.remove('in-zone'); catchLabel.classList.remove('show'); }, DURATION*ZONE_END);
+    setTimeout(() => { marker1.classList.remove('in-zone'); trail.classList.remove('in-zone'); }, DURATION*ZONE_END);
 
     setTimeout(() => {
       marker2.classList.add('on');
